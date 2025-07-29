@@ -2,9 +2,6 @@
 
 Welcome to the **Auth Service**! This is a beginner-friendly microservice built in ASP.NET Core for handling user authentication with JWT (JSON Web Tokens). It provides secure endpoints for registration, login, and token refresh, using password hashing and Entity Framework Core for database interactions. Ideal for developers learning microservices or building secure APIs, this service integrates seamlessly with an API gateway and other services like CRUD operations. It's designed to be easy, scalable, and extensible.
 
-![Auth Service Architecture](https://via.placeholder.com/800x300.png?text=Auth+Service+Demo)  
-*Add a screenshot or diagram showing the auth flow – replace with your own image URL for better visual appeal.*
-
 ## 🚀 Features
 The Auth Service provides a robust set of features focused on secure user management and token handling:
 
