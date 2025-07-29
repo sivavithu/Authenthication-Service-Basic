@@ -8,7 +8,6 @@ The Auth Service provides a robust set of features focused on secure user manage
 - **User Registration**: Securely registers users with username, password hashing, default role assignment ("User"), and automatic GUID ID generation. Prevents duplicate usernames with DB checks.
 - **Login**: Validates credentials against hashed passwords, issues JWT access token (1-day expiry) and refresh token (7-day expiry). Returns tokens in a structured DTO for easy client consumption.
 - **Token Refresh**: Validates refresh token from the database, checks expiry, issues new access and refresh tokens, and rotates the refresh token for added security.
-- **Role-Based Claims**: Includes user role in JWT claims for downstream authorization (e.g., in CRUD services).
 - **Database Integration**: Uses EF Core with SQL Server for user data storage, including migration support. Easily migrates to other DBs like PostgreSQL or Azure SQL.
 - **Error Handling**: Returns meaningful HTTP status codes and messages (e.g., 400 for invalid credentials, 401 for unauthorized refresh requests) for better client-side error management.
 
