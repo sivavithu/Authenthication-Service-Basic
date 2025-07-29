@@ -2,20 +2,6 @@
 
 Welcome to the **Auth Service**! This is a beginner-friendly microservice built in ASP.NET Core for handling user authentication with JWT (JSON Web Tokens). It provides secure endpoints for registration, login, and token refresh, using password hashing and Entity Framework Core for database interactions. Ideal for developers learning microservices or building secure APIs, this service integrates seamlessly with an API gateway and other services like CRUD operations. It's designed to be easy, scalable, and easy to extend.
 
-![Auth Service Architecture](https://via.placeholder.com/1200x400.png?text=Auth+Service+Demo)  
-*(Add a screenshot or diagram showing the auth flow – replace with your own image URL for better visual appeal)*
-
-## ✨ Why This Auth Service Stands Out
-This project is crafted with beginners in mind, providing a straightforward implementation that demonstrates real-world auth practices without overwhelming complexity. Here's what makes it special:
-
-- **Beginner-Friendly**: Clearendorf code structure, detailed comments, and step-by-step setup guide for those new to .NET and microservices. No advanced concepts are required to get started.
-- **Secure Authentication**: Uses JWT for stateless tokens, password hashing with ASP.NET Identity (PBKDF2 algorithm), and refresh token rotation for added security against replay attacks.
-- **Microservices-Ready**: Independent service with its own database, perfect for integration with API gateways (e.g., Ocelot) and other services like CRUD or notification systems.
-- **Customizable and Extensible**: Supports role-based access (e.g., "User" or "Admin") and can be easily extended for features like multi-factor authentication (MFA), email verification, or OAuth providers.
-- **Efficient and Scalable**: Asynchronous operations with EF Core for handling high concurrency; lightweight with no unnecessary dependencies.
-- **Open Source and Community-Driven**: Fork, contribute, and adapt this service for your projects – contributions are welcome to make it even better!
-
-This service is part of a larger microservices ecosystem but can stand alone as a simple auth API. If you're building a full app, pair it with a CRUD service and API gateway for a complete system. The code is modular, allowing you to learn one piece at a time while building a functional auth backend.
 
 ## 🚀 Features
 The Auth Service provides a robust set of features focused on secure user management and token handling. Here's a detailed look:
@@ -25,10 +11,7 @@ The Auth Service provides a robust set of features focused on secure user manage
 - **Token Refresh**: Validates refresh token from the database, checks expiry, issues new access and refresh tokens, and rotates the refresh token for added security.
 - **Role-Based Claims**: Includes user role in JWT claims for downstream authorization (e.g., in CRUD services).
 - **Database Integration**: Uses EF Core with SQL Server for user data storage, including migration support. Easy to migrate to other DBs like PostgreSQL or Azure SQL.
-- **Error Handling**: Returns meaningful HTTP status codes and messages (e.g., 400 for invalid credentials, 401 for unauthorized refresh requests) for better client-side error management.
-- **Extensible Design**: Add features like email MFA, social logins (Google/Facebook), or user profile management with minimal changes to the service layer.
-
-The service is stateless for token validation but stateful for refresh tokens (DB check) – a balanced approach for security and performance. It follows best practices from Microsoft documentation and OWASP guidelines for secure auth.
+- **Error Handling**: Returns meaningful HTTP status codes and messages (e.g., 400 for invalid credentials, 401 for unauthorized refresh requests) for better client-side error management..
 
 ## 🛠️ Prerequisites
 Before getting started, ensure you have the following tools and setup:
@@ -98,28 +81,6 @@ Follow these steps to get the Auth Service up and running locally. The process i
    If errors occur (e.g., DB connection fail), show messages in the console logs for details and verify the connection string.
 
 ## 📂 Project Structure
-The project is organized into logical folders for easy navigation and understanding. Here's a breakdown of the key files and directories:
-
-- `AuthService.csproj`: The main project file defining dependencies and build settings.
-- `Program.cs`: The entry point of the application, where services (DbContext, AuthService, JWT authentication) are registered and the app pipeline (authentication, authorization, controllers) is configured.
-- `appsettings.json`: Configuration file for logging, allowed hosts, JWT settings (issuer, audience, key), and database connection string.
-- `Entities/`: Contains domain models.  
-  - `User.cs`: The User entity with properties like Id (Guid), Username, PasswordHash, Role, RefreshToken, and RefreshTokenExpiryTime.
-- `Data/`: Database-related code.  
-  - `ApplicationDbContext.cs`: EF Core DbContext with DbSet<User> for the Users table.
-- `Models/`: Data Transfer Objects (DTOs) for API input/output.  
-  - `UserDto.cs`: For username and password in register/login requests.  
-  - `TokenResponseDto.cs`: For accessToken and refreshToken in login/refresh responses.  
-  - `RefreshTokenRequestDto.cs`: For userId and refreshToken in refresh requests.
-- `Service/`: Business logic layer.  
-  - `IAuthService.cs`: Interface for auth methods (LoginAsync, RegisterAsync, RefreshTokenAsync).  
-  - `AuthService.cs`: Implementation with password verification, token generation, refresh validation, and DB operations.
-- `Controllers/`: API layer.  
-  - `AuthController.cs`: Endpoints for POST register, login, and refresh-token, with dependency injection for IAuthService.
-- `Migrations/`: EF Core migration files (generated on dotnet ef commands) for database schema changes.
-
-This structure follows clean architecture principles, separating concerns for better maintainability.
-
 ```
 Authenthication-Service-Basic/
 ├── AuthService/                 # Main service project directory
@@ -139,8 +100,6 @@ Authenthication-Service-Basic/
 JWT Setup: In `Program.cs`, `AddAuthentication` configures token validation parameters (issuer, audience, key) – essential for secure token issuance and validation.  
 Password Hashing: Uses ASP.NET Identity's `PasswordHasher` for secure storage (PBKDF2 algorithm with salting).  
 Refresh Tokens: Stored in the DB with expiry timestamps and rotated on each use to enhance security.  
-Customization: Extend for advanced features like multi-factor authentication (MFA) by adding OTP logic to the service, or role-based enhancements by modifying claims in `CreateToken`.  
-Logging: Basic console logging; add Serilog for more advanced file/structured logging if needed.
 
 ## 🤝 Contributing
 This project is beginner-friendly and open for contributions! If you have ideas for improvements, such as adding MFA or supporting additional auth providers, fork the repo and submit a pull request. Issues and suggestions are welcome to help make this even better for the community.
