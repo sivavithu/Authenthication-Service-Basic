@@ -103,7 +103,7 @@ Authenthication-Service-Basic/
 This project is beginner-friendly and open for contributions! To add features like MFA or additional auth providers, fork the repo and submit a pull request. Issues and suggestions are welcome to improve the community experience.
 
 ## 📄 License
-MIT License – Free to use, modify, and distribute. See the LICENSE file for details.
+MIT License – Free to use, modify, and distribute.
 
 ## 🌟 Star This Repo
 If this helps you learn or build, please star it on GitHub! Check out the companion API Gateway and CRUD Service repos for a full microservices stack.
