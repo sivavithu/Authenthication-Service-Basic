@@ -9,5 +9,6 @@ namespace AuthService.Service
         Task<TokenResponseDto?> LoginAsync(UserDto request);
         Task<User?> RegisterAsync(UserDto request);
         Task<TokenResponseDto?> RefreshTokenAsync(RefreshTokenRequestDto request);
+        Task<bool> RevokeRefreshTokenAsync(Guid userId);
     }
 }

@@ -3,6 +3,7 @@ using AuthService.Entities;
 using AuthService.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using System;
 using System.Collections.Generic;
@@ -60,6 +61,27 @@ namespace AuthService.Service
             return await CreateTokenResponse(user);
         }
 
+        public async Task<bool> RevokeRefreshTokenAsync(Guid userId)
+        {
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(user.RefreshTokenHash) || user.RefreshTokenExpiryTime <= DateTime.UtcNow || user.RevokedOn != null)
+            {
+                return true; 
+            }
+
+            user.RefreshTokenHash = null; 
+            user.RefreshTokenExpiryTime = DateTime.MinValue; 
+            user.RevokedOn = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return true;
+        }
+
+  
         private async Task<TokenResponseDto> CreateTokenResponse(User user)
         {
             return new TokenResponseDto
@@ -76,20 +98,18 @@ namespace AuthService.Service
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Role, user.Role),
-                 
             };
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["AppSettings:Key"]!));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha512);
-            var expirydate = DateTime.UtcNow.AddDays(1);
+
             var tokenDescriptor = new JwtSecurityToken(
-                issuer: _configuration["AppSettings:issuer"],
+                issuer: _configuration["AppSettings:Issuer"],
                 audience: _configuration["AppSettings:Audience"],
                 claims: claims,
                 expires: DateTime.UtcNow.AddDays(1),
                 signingCredentials: creds
             );
-     
 
             return new JwtSecurityTokenHandler().WriteToken(tokenDescriptor);
         }
@@ -101,12 +121,14 @@ namespace AuthService.Service
             rng.GetBytes(randomNumber);
             return Convert.ToBase64String(randomNumber);
         }
-
         private async Task<string> GenerateAndSaveRefreshTokenAsync(User user)
         {
             var refreshToken = GenerateRefreshToken();
-            user.RefreshToken = refreshToken;
+            var refreshTokenHash = new PasswordHasher<User>().HashPassword(user, refreshToken);
+
+            user.RefreshTokenHash = refreshTokenHash;
             user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            user.RevokedOn = null; 
             await _context.SaveChangesAsync();
             return refreshToken;
         }
@@ -114,10 +136,28 @@ namespace AuthService.Service
         private async Task<User?> ValidateRefreshTokenAsync(Guid userId, string refreshToken)
         {
             var user = await _context.Users.FindAsync(userId);
-            if (user == null || user.RefreshToken != refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+
+            if (user == null)
             {
                 return null;
             }
+
+            if (string.IsNullOrEmpty(user.RefreshTokenHash) ||
+                new PasswordHasher<User>().VerifyHashedPassword(user, user.RefreshTokenHash, refreshToken) == PasswordVerificationResult.Failed)
+            {
+                return null; 
+            }
+
+            if (user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            {
+                return null; 
+            }
+
+            if (user.RevokedOn != null) 
+            {
+                return null;
+            }
+
             return user;
         }
     }

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace AuthService.Controllers
 {
-    [Route("")]  // Add prefix here – all endpoints now /auth/register, /auth/login, etc.
+    [Route("")]
     [ApiController]
     public class AuthController : ControllerBase
     {
@@ -39,6 +39,23 @@ namespace AuthService.Controllers
             var results = await _authService.RefreshTokenAsync(request);
             if (results == null) return Unauthorized("Invalid refresh token");
             return Ok(results);
+        }
+
+        [HttpPost("logout")]
+        public async Task<ActionResult> Logout([FromQuery] Guid userId) // Using [FromQuery] as in common scenarios for simple ID
+        {
+            // Basic validation
+            if (userId == Guid.Empty)
+            {
+                return BadRequest("User ID is required.");
+            }
+
+            var result = await _authService.RevokeRefreshTokenAsync(userId);
+            if (!result)
+            {
+                return BadRequest("Logout failed: User not found or an issue occurred.");
+            }
+            return Ok("Successfully logged out.");
         }
     }
 }
