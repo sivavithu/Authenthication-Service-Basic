@@ -1,4 +1,4 @@
-# Auth Service - Beginner-Friendly JWT Authentication Microservice
+# Auth Service - Beginner-Friendly JWT Authentication Microservice + OAuth
 
 Welcome to the **Auth Service**! This is a beginner-friendly microservice built in ASP.NET Core for handling user authentication with JWT (JSON Web Tokens). It provides secure endpoints for registration, login, and token refresh, using password hashing and Entity Framework Core for database interactions. Ideal for developers learning microservices or building secure APIs, this service integrates seamlessly with an API gateway and other services like CRUD operations. It's designed to be easy, scalable, and extensible.
 
