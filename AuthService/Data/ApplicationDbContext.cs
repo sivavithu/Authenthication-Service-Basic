@@ -1,6 +1,8 @@
 ﻿using AuthService.Entities;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
+using AuthService.Models;
+
 
 namespace AuthService.Data
 {
