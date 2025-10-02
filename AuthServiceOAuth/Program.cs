@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -7,6 +7,10 @@ using OAuthAuthService.Data;
 using OAuthAuthService.Entities;
 using OAuthAuthService.Services;
 using System.Text;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.DependencyInjection;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,9 +21,9 @@ builder.Services.AddControllers();
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("UserDatabase")));
 
-
 // Add services
 builder.Services.AddScoped<IAuthService, AuthServices>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 // Add JWT Authentication 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -51,6 +55,8 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader();
     });
 });
+
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -94,33 +100,25 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
-
-app.UseCors("AllowAll"); // Enable CORS if needed
-
+app.UseCors("AllowAll");
 app.UseAuthentication();
-
 app.UseAuthorization();
-
 app.MapControllers();
 
 app.MapHealthChecks("/healthz", new HealthCheckOptions
 {
-    Predicate = _ => true,
+    Predicate = _ => true, // Include all registered checks (if any)
     ResponseWriter = async (context, report) =>
     {
         context.Response.ContentType = "application/json";
         var json = System.Text.Json.JsonSerializer.Serialize(new
         {
             status = report.Status.ToString(),
-            checks = report.Entries.Select(e => new
-            {
-                name = e.Key,
-                status = e.Value.Status.ToString(),
-                description = e.Value.Description
-            })
+            checks = report.Entries.Select(e => new { name = e.Key, status = e.Value.Status.ToString(), description = e.Value.Description })
         });
         await context.Response.WriteAsync(json);
     }
 });
+
 
 app.Run();

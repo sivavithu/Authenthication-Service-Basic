@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace OAuthAuthService.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -203,36 +203,115 @@ namespace OAuthAuthService.Controllers
             }
         }
 
-        //[Authorize]
-        //[HttpPost("change-password")]
-        //public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
-        //{
-        //    try
-        //    {
-        //        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        //        if (string.IsNullOrEmpty(userIdClaim))
-        //        {
-        //            return Unauthorized(new { message = "Invalid token" });
-        //        }
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequestDto request)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim))
+                {
+                    return Unauthorized(new { message = "Invalid token" });
+                }
 
-        //        var userId = Guid.Parse(userIdClaim);
-        //        await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
-        //        return Ok(new { message = "Password changed successfully" });
-        //    }
-        //    catch (UnauthorizedAccessException ex)
-        //    {
-        //        return Unauthorized(new { message = ex.Message });
-        //    }
-        //    catch (InvalidOperationException ex)
-        //    {
-        //        return BadRequest(new { message = ex.Message });
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "Error changing password");
-        //        return StatusCode(500, new { message = "Failed to change password", error = ex.Message });
-        //    }
-        //}
+                var userId = Guid.Parse(userIdClaim);
+                await _authService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+                return Ok(new { message = "Password changed successfully" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password");
+                return StatusCode(500, new { message = "Failed to change password", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Step 1: Request password reset OTP - sends 6-digit OTP to email
+        /// </summary>
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequestDto request)
+        {
+            try
+            {
+                await _authService.SendPasswordResetOtpAsync(request.Email);
+                return Ok(new { message = "If the email exists, an OTP has been sent" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError(ex, "Failed to send OTP");
+                return StatusCode(500, new { message = "Failed to send OTP. Please try again." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during forgot password request");
+                return Ok(new { message = "If the email exists, an OTP sent" });
+            }
+        }
+
+        /// <summary>
+        /// Step 2: Verify OTP (optional endpoint - can skip and go directly to reset)
+        /// </summary>
+        [HttpPost("verify-otp")]
+        public async Task<IActionResult> VerifyOtp([FromBody] VerifyOtpRequestDto request)
+        {
+            try
+            {
+                await _authService.VerifyOtpAsync(request.Email, request.Otp);
+                return Ok(new { message = "OTP verified successfully" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning("OTP verification failed: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("OTP verification failed: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during OTP verification");
+                return StatusCode(500, new { message = "Verification failed", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Step 3: Reset password using OTP
+        /// </summary>
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordWithOtpRequestDto request)
+        {
+            try
+            {
+                await _authService.ResetPasswordWithOtpAsync(request.Email, request.Otp, request.NewPassword);
+                return Ok(new { message = "Password has been reset successfully. Please login with your new password." });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning("Password reset failed: {Message}", ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error during password reset");
+                return StatusCode(500, new { message = "Password reset failed", error = ex.Message });
+            }
+        }
 
         [HttpGet("health")]
         public IActionResult Health()

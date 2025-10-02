@@ -15,27 +15,34 @@ namespace OAuthAuthService.Services
     {
         private readonly ApplicationDbContext _context;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthServices> _logger;
+        private readonly IEmailService _emailService;
 
-        public AuthServices(ApplicationDbContext context, IConfiguration configuration)
+        public AuthServices(ApplicationDbContext context, IConfiguration configuration,
+            ILogger<AuthServices> logger, IEmailService emailService)
         {
             _context = context;
             _configuration = configuration;
+            _logger = logger;
+            _emailService = emailService;
         }
 
         public async Task<TokenResponseDto> RegisterAsync(RegisterRequestDto request)
         {
-            if (await _context.Users.AnyAsync(u => u.Email == request.Email))
+            var email = request.Email.Trim().ToLowerInvariant();
+
+            if (await _context.Users.AnyAsync(u => u.Email == email))
             {
                 throw new InvalidOperationException("Email already exists");
             }
 
-            var username = await GenerateUniqueUsernameAsync(request.Email);
+            var username = await GenerateUniqueUsernameAsync(email);
 
             var user = new User
             {
                 Id = Guid.NewGuid(),
                 Username = username,
-                Email = request.Email,
+                Email = email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 Role = "User",
                 AuthProvider = "Local",
@@ -50,7 +57,7 @@ namespace OAuthAuthService.Services
             var refreshToken = GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
-            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(int.Parse(_configuration["AppSettings:RefreshTokenExpiryDays"] ?? "7"));
             user.LastLoginAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
@@ -68,24 +75,26 @@ namespace OAuthAuthService.Services
 
         public async Task<TokenResponseDto> LoginAsync(LoginRequestDto request)
         {
+            var email = request.Email.Trim().ToLowerInvariant();
+
             var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive);
+                .FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
 
             if (user == null || user.AuthProvider != "Local" || user.PasswordHash == null)
             {
-                throw new UnauthorizedAccessException("Invalid credentials");
+                throw new UnauthorizedAccessException("Login failed. Please check your email or password.");
             }
 
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
             {
-                throw new UnauthorizedAccessException("Invalid credentials");
+                throw new UnauthorizedAccessException("Login failed. Please check your email or password.");
             }
 
             var accessToken = GenerateAccessToken(user);
             var refreshToken = GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
-            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(int.Parse(_configuration["AppSettings:RefreshTokenExpiryDays"] ?? "7"));
             user.LastLoginAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
@@ -107,7 +116,7 @@ namespace OAuthAuthService.Services
             {
                 var settings = new GoogleJsonWebSignature.ValidationSettings
                 {
-                    Audience = new[] { _configuration["Authentication:Google:ClientId"] }
+                    Audience = new[] { _configuration["GoogleSettings:ClientId"] }
                 };
 
                 var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
@@ -117,22 +126,23 @@ namespace OAuthAuthService.Services
                     throw new UnauthorizedAccessException("Invalid Google token");
                 }
 
+                var email = payload.Email.Trim().ToLowerInvariant();
+
                 var user = await _context.Users
                     .FirstOrDefaultAsync(u => u.GoogleId == payload.Subject ||
-                                            (u.Email == payload.Email && u.Email != null));
+                                            (u.Email == email && u.Email != null));
 
                 if (user == null)
                 {
                     user = new User
                     {
                         Id = Guid.NewGuid(),
-                        Username = await GenerateUniqueUsernameAsync(payload.Email),
-                        Email = payload.Email,
+                        Username = await GenerateUniqueUsernameAsync(email),
+                        Email = email,
                         GoogleId = payload.Subject,
                         ProfilePicture = payload.Picture,
                         Role = "User",
                         AuthProvider = "Google",
-                        PasswordHash = null,
                         CreatedAt = DateTime.UtcNow,
                         IsActive = true
                     };
@@ -142,13 +152,11 @@ namespace OAuthAuthService.Services
                 else
                 {
                     if (string.IsNullOrEmpty(user.GoogleId))
-                    {
                         user.GoogleId = payload.Subject;
-                    }
+
                     if (user.AuthProvider == "Local")
-                    {
                         user.AuthProvider = "Google";
-                    }
+
                     user.ProfilePicture = payload.Picture;
                     user.LastLoginAt = DateTime.UtcNow;
                 }
@@ -157,7 +165,7 @@ namespace OAuthAuthService.Services
                 var refreshToken = GenerateRefreshToken();
 
                 user.RefreshToken = refreshToken;
-                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+                user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(int.Parse(_configuration["AppSettings:RefreshTokenExpiryDays"] ?? "7"));
                 user.LastLoginAt = DateTime.UtcNow;
 
                 await _context.SaveChangesAsync();
@@ -179,30 +187,123 @@ namespace OAuthAuthService.Services
             }
         }
 
+        public async Task<bool> SendPasswordResetOtpAsync(string email)
+        {
+            email = email.Trim().ToLowerInvariant();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
+
+            if (user == null || user.AuthProvider != "Local")
+            {
+                return true; // Don't reveal user existence
+            }
+
+            var otp = RandomNumberGenerator.GetInt32(100000, 1000000).ToString();
+
+            user.PasswordResetOtp = otp;
+            user.PasswordResetOtpExpiry = DateTime.UtcNow.AddMinutes(10);
+            user.PasswordResetAttempts = 0;
+
+            await _context.SaveChangesAsync();
+
+            try
+            {
+                await _emailService.SendOtpEmailAsync(email, otp, user.Username);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send OTP to {Email}", email);
+                throw new ApplicationException("Failed to send OTP email. Please try again later.");
+            }
+
+            return true;
+        }
+
+        public async Task<bool> VerifyOtpAsync(string email, string otp)
+        {
+            email = email.Trim().ToLowerInvariant();
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
+
+            if (user == null || user.AuthProvider != "Local")
+                throw new InvalidOperationException("Invalid verification request");
+
+            if (string.IsNullOrEmpty(user.PasswordResetOtp))
+                throw new InvalidOperationException("No OTP request found. Please request a new OTP.");
+
+            if (user.PasswordResetOtpExpiry < DateTime.UtcNow)
+            {
+                user.PasswordResetOtp = null;
+                user.PasswordResetOtpExpiry = null;
+                user.PasswordResetAttempts = 0;
+                await _context.SaveChangesAsync();
+
+                throw new UnauthorizedAccessException("OTP has expired. Please request a new one.");
+            }
+
+            if (user.PasswordResetAttempts >= 5)
+            {
+                user.PasswordResetOtp = null;
+                user.PasswordResetOtpExpiry = null;
+                user.PasswordResetAttempts = 0;
+                await _context.SaveChangesAsync();
+
+                throw new UnauthorizedAccessException("Too many failed attempts. Please request a new OTP.");
+            }
+
+            if (user.PasswordResetOtp != otp)
+            {
+                user.PasswordResetAttempts++;
+                await _context.SaveChangesAsync();
+
+                throw new UnauthorizedAccessException($"Invalid OTP. {5 - user.PasswordResetAttempts} attempts remaining.");
+            }
+
+            return true;
+        }
+
+        public async Task<bool> ResetPasswordWithOtpAsync(string email, string otp, string newPassword)
+        {
+            await VerifyOtpAsync(email, otp);
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email && u.IsActive);
+
+            if (user == null)
+                throw new InvalidOperationException("User not found");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            user.PasswordResetOtp = null;
+            user.PasswordResetOtpExpiry = null;
+            user.PasswordResetAttempts = 0;
+            user.RefreshToken = null;
+            user.RefreshTokenExpiryTime = null;
+
+            await _context.SaveChangesAsync();
+
+            return true;
+        }
+
         public async Task<TokenResponseDto> RefreshTokenAsync(RefreshTokenRequestDto request)
         {
             var user = await _context.Users.FindAsync(request.UserId);
 
             if (user == null || !user.IsActive)
-            {
                 throw new UnauthorizedAccessException("User not found");
-            }
 
             if (user.RefreshToken != request.RefreshToken)
-            {
                 throw new UnauthorizedAccessException("Invalid refresh token");
-            }
 
             if (user.RefreshTokenExpiryTime < DateTime.UtcNow)
-            {
                 throw new UnauthorizedAccessException("Refresh token expired");
-            }
 
             var accessToken = GenerateAccessToken(user);
             var refreshToken = GenerateRefreshToken();
 
             user.RefreshToken = refreshToken;
-            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(int.Parse(_configuration["AppSettings:RefreshTokenExpiryDays"] ?? "7"));
             await _context.SaveChangesAsync();
 
             return new TokenResponseDto
@@ -220,11 +321,8 @@ namespace OAuthAuthService.Services
         public async Task<UserInfoDto> GetUserByIdAsync(Guid userId)
         {
             var user = await _context.Users.FindAsync(userId);
-
             if (user == null)
-            {
                 throw new KeyNotFoundException("User not found");
-            }
 
             return new UserInfoDto
             {
@@ -261,11 +359,8 @@ namespace OAuthAuthService.Services
         public async Task<UserInfoDto> UpdateUserRoleAsync(Guid userId, string role)
         {
             var user = await _context.Users.FindAsync(userId);
-
             if (user == null)
-            {
                 throw new KeyNotFoundException("User not found");
-            }
 
             user.Role = role;
             await _context.SaveChangesAsync();
@@ -286,40 +381,28 @@ namespace OAuthAuthService.Services
         public async Task<bool> DeleteUserAsync(Guid userId)
         {
             var user = await _context.Users.FindAsync(userId);
-
             if (user == null)
-            {
                 throw new KeyNotFoundException("User not found");
-            }
 
             user.IsActive = false;
             await _context.SaveChangesAsync();
-
             return true;
         }
 
         public async Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword)
         {
             var user = await _context.Users.FindAsync(userId);
-
             if (user == null)
-            {
                 throw new KeyNotFoundException("User not found");
-            }
 
             if (user.AuthProvider != "Local" || user.PasswordHash == null)
-            {
                 throw new InvalidOperationException("Cannot change password for OAuth users");
-            }
 
             if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
-            {
                 throw new UnauthorizedAccessException("Current password is incorrect");
-            }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
             await _context.SaveChangesAsync();
-
             return true;
         }
 
@@ -338,11 +421,13 @@ namespace OAuthAuthService.Services
                 new Claim("AuthProvider", user.AuthProvider)
             };
 
+            var expiresInHours = int.Parse(_configuration["AppSettings:AccessTokenExpiryHours"] ?? "24");
+
             var token = new JwtSecurityToken(
                 issuer: _configuration["AppSettings:Issuer"],
                 audience: _configuration["AppSettings:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddHours(24),
+                expires: DateTime.UtcNow.AddHours(expiresInHours),
                 signingCredentials: creds
             );
 

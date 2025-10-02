@@ -42,5 +42,11 @@ namespace OAuthAuthService.Entities
         public DateTime? LastLoginAt { get; set; }
 
         public bool IsActive { get; set; } = true;
+
+        public string? PasswordResetOtp { get; set; }
+        public DateTime? PasswordResetOtpExpiry { get; set; }
+        public int PasswordResetAttempts { get; set; } = 0;
+
+
     }
 }
