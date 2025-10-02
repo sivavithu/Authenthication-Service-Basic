@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36301.6
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthService", "AuthService\AuthService.csproj", "{7E779827-8C40-4664-9415-FE42CD953035}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthAuthService", "AuthServiceOAuth\OAuthAuthService.csproj", "{FF4A3BF8-45A0-4A87-BC6E-19CF2270BA5A}"
 EndProject
 Global
@@ -13,10 +11,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{7E779827-8C40-4664-9415-FE42CD953035}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7E779827-8C40-4664-9415-FE42CD953035}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7E779827-8C40-4664-9415-FE42CD953035}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7E779827-8C40-4664-9415-FE42CD953035}.Release|Any CPU.Build.0 = Release|Any CPU
 		{FF4A3BF8-45A0-4A87-BC6E-19CF2270BA5A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{FF4A3BF8-45A0-4A87-BC6E-19CF2270BA5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FF4A3BF8-45A0-4A87-BC6E-19CF2270BA5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
