@@ -16,5 +16,9 @@ namespace OAuthAuthService.Services
         Task<bool> ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
         string GenerateAccessToken(User user);
         string GenerateRefreshToken();
+
+        Task<bool> SendPasswordResetOtpAsync(string email);
+        Task<bool> VerifyOtpAsync(string email, string otp);
+        Task<bool> ResetPasswordWithOtpAsync(string email, string otp, string newPassword);
     }
 }
