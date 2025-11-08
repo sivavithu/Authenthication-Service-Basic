@@ -78,11 +78,13 @@ Follow these steps to get the Auth Service running locally:
    ```
    
    **Important Security Notes:**  
+   - `appsettings.json` and `appsettings.Development.json` are NOT tracked in git to prevent security alerts
+   - You must create `appsettings.json` from `appsettings.example.json` before running the application
    - Never commit `appsettings.json` with real secrets to version control
    - For production, use environment variables or a secrets manager (e.g., Azure Key Vault, AWS Secrets Manager)
    - Generate a new, unique JWT key for each environment (development, staging, production)
    - Use app-specific passwords for Gmail (generated from Google Account settings)
-   - The `appsettings.json` file is in `.gitignore` to prevent accidental commits
+   - The `.gitignore` file prevents `appsettings.json` and related files from being committed
 
 4. **Apply Database Migrations**  
    Add the initial migration to create the schema:  
