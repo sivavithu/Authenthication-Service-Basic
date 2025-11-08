@@ -36,21 +36,53 @@ Follow these steps to get the Auth Service running locally:
    ```
 
 3. **Configure the Database**  
+   Copy the example configuration file to create your own settings:  
+   ```bash
+   cp AuthServiceOAuth/appsettings.example.json AuthServiceOAuth/appsettings.json
+   ```
+   
    Update `appsettings.json` with your SQL Server connection string:  
    ```json
    "ConnectionStrings": {
-     "UserDatabase": "Server=your-server-name;Database=UserDb;Trusted_Connection=true;TrustServerCertificate=true;"
+     "UserDatabase": "Server=your-server-name;Database=OAuthProfiles;Trusted_Connection=true;TrustServerCertificate=true;"
    }
    ```  
-   For JWT settings (generate a strong key for production and keep it secret):  
+   
+   For JWT settings, generate a strong key (minimum 64 characters) for production and keep it secret:  
    ```json
    "AppSettings": {
      "Issuer": "loginapp",
      "Audience": "myAwesomeAudience",
-     "Key": "your-long-secure-key-here"
+     "Key": "your-long-secure-key-here-minimum-64-characters"
    }
    ```  
-   *Note*: For production, use environment variables or a secrets manager (e.g., Azure Key Vault) for sensitive data.
+   
+   Configure Google OAuth credentials (obtain from [Google Cloud Console](https://console.cloud.google.com/)):  
+   ```json
+   "GoogleSettings": {
+     "ClientId": "your-client-id.apps.googleusercontent.com",
+     "ClientSecret": "your-client-secret"
+   }
+   ```
+   
+   Configure email settings for SMTP (use app-specific password for Gmail):  
+   ```json
+   "EmailSettings": {
+     "SmtpHost": "smtp.gmail.com",
+     "SmtpPort": "587",
+     "FromEmail": "your-email@gmail.com",
+     "FromName": "Book App OTP",
+     "Username": "your-email@gmail.com",
+     "Password": "your-app-specific-password"
+   }
+   ```
+   
+   **Important Security Notes:**  
+   - Never commit `appsettings.json` with real secrets to version control
+   - For production, use environment variables or a secrets manager (e.g., Azure Key Vault, AWS Secrets Manager)
+   - Generate a new, unique JWT key for each environment (development, staging, production)
+   - Use app-specific passwords for Gmail (generated from Google Account settings)
+   - The `appsettings.json` file is in `.gitignore` to prevent accidental commits
 
 4. **Apply Database Migrations**  
    Add the initial migration to create the schema:  
